@@ -7,7 +7,7 @@ import time
 from utils.parser import parse_csv_to_list
 from utils.generator import generate_csv_from_list
 from utils.cerebras_client import CerebrasClient
-from utils.cleaner import pre_process_csv, post_process_dataframe
+from utils.cleaner import pre_process_csv, comprehensive_clean
 from prompts.prompts import (
     PARSER_SYSTEM_PROMPT,
     PARSER_USER_PROMPT,
@@ -180,27 +180,29 @@ def main():
                         st.status(f"Processing batch {current_batch}/{total_batches}...")
                     
                     progress_bar.progress(85)
-                    st.status("Step 3: Post-processing...")
+                    st.status("Step 3: Post-processing (Quality Enhancement)...")
                     
                     if all_cleaned:
                         try:
-                            # Create DataFrame and ensure all strings using apply
+                            # Create DataFrame from AI cleaned data
                             all_cleaned_str = []
                             for item in all_cleaned:
                                 fixed_item = {k: str(v) if v is not None else '' for k, v in item.items()}
                                 all_cleaned_str.append(fixed_item)
                             df_clean = pd.DataFrame(all_cleaned_str)
-                            # Convert all columns properly
-                            for col in df_clean.columns:
-                                df_clean[col] = df_clean[col].apply(lambda x: str(x) if pd.notna(x) else '')
+                            
+                            # Apply comprehensive cleaning for quality
+                            df_clean = comprehensive_clean(df_clean)
+                            
                         except Exception as e:
-                            st.warning(f"Processing completed with minor issues: {str(e)}")
-                            # Better fallback - convert all to strings properly
+                            st.warning(f"Using fallback cleaning: {str(e)}")
+                            # Fallback - use only comprehensive clean without AI
                             fallback_data = []
                             for item in csv_data:
                                 fixed_item = {k: str(v) if v is not None else '' for k, v in item.items()}
                                 fallback_data.append(fixed_item)
                             df_clean = pd.DataFrame(fallback_data)
+                            df_clean = comprehensive_clean(df_clean)
                         
                         progress_bar.progress(100)
                         st.markdown("### ✅ Cleaned Data")

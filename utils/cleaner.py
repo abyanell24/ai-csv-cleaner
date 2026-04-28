@@ -1,105 +1,156 @@
 import pandas as pd
 import numpy as np
 import re
-import json
 from datetime import datetime
 from collections import Counter
 
 
-def detect_column_type(col_name, df):
-    """Detect jenis kolom berdasarkan nama dan data"""
-    col_lower = col_name.lower()
+def standardize_date(val):
+    """Standardize date to YYYY-MM-DD format"""
+    if pd.isna(val) or str(val).strip() in ['', 'N/A', 'null', 'None', 'nan']:
+        return ''
     
-    # Numeric columns
-    if any(x in col_lower for x in ["quantity", "qty", "price", "amount", "total", "cost", "harga", "nomor", "usia", "age", "score", "point"]):
-        return "numeric"
+    val_str = str(val).strip()
+    
+    formats = [
+        '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y/%m/%d',
+        '%b %d %Y', '%b %d, %Y', '%d-%m-%Y', '%m-%d-%Y'
+    ]
+    
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(val_str, fmt)
+            return dt.strftime('%Y-%m-%d')
+        except:
+            continue
+    
+    return val_str
+
+
+def standardize_case(val):
+    """Standardize case and trim whitespace"""
+    if pd.isna(val):
+        return ''
+    return str(val).strip().lower()
+
+
+def fix_zero_age(val):
+    """Fix zero values in Age column"""
+    if pd.isna(val) or val == '':
+        return ''
+    try:
+        if float(val) == 0:
+            return ''
+    except:
+        pass
+    return val
+
+
+def fix_negative_phone(val):
+    """Fix negative phone numbers"""
+    if pd.isna(val):
+        return ''
+    val_str = str(val).strip()
+    # Remove negative sign and any leading garbage
+    if val_str.startswith('-'):
+        val_str = val_str.lstrip('-')
+    # Keep only digits
+    digits = re.sub(r'\D', '', val_str)
+    return digits if digits else ''
+
+
+def fill_missing_numeric(series, fill_value=None):
+    """Fill missing numeric values with median"""
+    if fill_value is not None:
+        return series.fillna(fill_value)
+    
+    valid = pd.to_numeric(series, errors='coerce').dropna()
+    if len(valid) > 0:
+        return series.fillna(valid.median())
+    return series.fillna(0)
+
+
+def fill_missing_categorical(series):
+    """Fill missing categorical values with mode"""
+    valid = series[series != ''].dropna()
+    if len(valid) > 0:
+        counter = Counter(valid)
+        return series.fillna(counter.most_common(1)[0][0])
+    return series.fillna('unknown')
+
+
+def remove_duplicates(df):
+    """Remove duplicate rows"""
+    return df.drop_duplicates()
+
+
+def comprehensive_clean(df):
+    """Comprehensive cleaning Pipeline"""
+    
+    # Step 1: Basic string conversion
+    for col in df.columns:
+        df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) else '')
+    
+    # Step 2: Remove duplicates
+    df = remove_duplicates(df)
+    
+    # Step 3: Identify column types
+    col_lower = {col: col.lower() for col in df.columns}
     
     # Date columns
-    if any(x in col_lower for x in ["date", "tanggal", "waktu", "time", "tgl", "born", "lahir"]):
-        return "date"
+    date_cols = [col for col in df.columns if any(x in col_lower[col] for x in ['date', 'join', 'birth', 'start'])]
+    for col in date_cols:
+        df[col] = df[col].apply(lambda x: standardize_date(x) if x else '')
     
-    # Categorical columns
-    if any(x in col_lower for x in ["category", "kategori", "type", "jenis", "status", "condition", "kondisi", "gender", "sex", "role"]):
-        return "categorical"
+    # Age column - fix zeros
+    age_cols = [col for col in df.columns if 'age' in col_lower[col]]
+    for col in age_cols:
+        df[col] = df[col].apply(lambda x: fix_zero_age(x) if x else '')
+        df[col] = fill_missing_numeric(df[col])
     
-    # Email/Phone columns
-    if any(x in col_lower for x in ["email", "phone", "telepon", "hp", "wa"]):
-        return "contact"
+    # Phone columns - fix negatives
+    phone_cols = [col for col in df.columns if any(x in col_lower[col] for x in ['phone', 'telepon', 'hp'])]
+    for col in phone_cols:
+        df[col] = df[col].apply(lambda x: fix_negative_phone(x) if x else '')
     
-    # Check data samples
-    sample = df[col_name].dropna().head(20)
-    if len(sample) > 0:
-        # Check if numeric
-        try:
-            numeric_sample = pd.to_numeric(sample, errors='coerce')
-            if numeric_sample.notna().sum() > len(sample) * 0.7:
-                return "numeric"
-        except:
-            pass
-        
-        # Check if date
-        try:
-            date_sample = pd.to_datetime(sample, errors='coerce')
-            if date_sample.notna().sum() > len(sample) * 0.7:
-                return "date"
-        except:
-            pass
-        
-        # Check unique values ratio for categorical
-        unique_ratio = len(sample.unique()) / len(sample)
-        if unique_ratio < 0.5:
-            return "categorical"
+    # Categorical columns - normalize case (except emails)
+    email_cols = [col for col in df.columns if 'email' in col_lower[col]]
+    categorical_cols = [col for col in df.columns if any(x in col_lower[col] for x in ['category', 'department', 'status', 'role', 'type', 'gender', 'region']) and col not in email_cols]
+    for col in categorical_cols:
+        df[col] = df[col].apply(lambda x: standardize_case(x) if x else '')
+        df[col] = fill_missing_categorical(df[col])
     
-    return "text"
-
-
-def fill_missing_with_context(df):
-    """Fill missing values dengan mean/median/mode dari masing-masing kolom"""
+    # Name columns - normalize case
+    name_cols = [col for col in df.columns if any(x in col_lower[col] for x in ['name', 'first', 'last'])]
+    for col in name_cols:
+        df[col] = df[col].apply(lambda x: standardize_case(x) if x else '')
     
+    # Salary/Pay columns - fix zeros and fill missing
+    salary_cols = [col for col in df.columns if any(x in col_lower[col] for x in ['salary', 'pay', 'wage', 'harga'])]
+    for col in salary_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        # Replace zeros with median
+        median_val = df[col][df[col] > 0].median() if len(df[col][df[col] > 0]) > 0 else 0
+        df[col] = df[col].replace(0, median_val)
+        df[col] = df[col].fillna(median_val)
+        df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) else '')
+    
+    # Numeric columns - fill missing with median
+    numeric_cols = [col for col in df.columns if any(x in col_lower[col] for x in ['quantity', 'qty', 'score', 'point']) and col not in date_cols + age_cols + salary_cols]
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col] = fill_missing_numeric(df[col])
+        df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) else '')
+    
+    # Boolean columns - standardize
+    bool_cols = [col for col in df.columns if any(x in col_lower[col] for x in ['remote', 'active', 'status'])]
+    for col in bool_cols:
+        df[col] = df[col].apply(lambda x: str(x).lower() if x else '')
+        df[col] = df[col].replace({'1': 'true', '0': 'false', 'yes': 'true', 'no': 'false', 'true': 'true', 'false': 'false'})
+    
+    # Fill remaining empty with 'unknown'
     for col in df.columns:
-        col_type = detect_column_type(col, df)
-        missing_mask = df[col].isna() | (df[col] == "") | (df[col] == "N/A") | (df[col] == "null")
-        
-        if missing_mask.sum() == 0:
-            continue
-        
-        if col_type == "numeric":
-            # Fill dengan median (lebih robust dari mean untuk outliers)
-            valid_vals = pd.to_numeric(df[col], errors='coerce')
-            median_val = valid_vals.median()
-            if pd.isna(median_val):
-                median_val = 0
-            df.loc[missing_mask, col] = median_val
-            
-        elif col_type == "categorical" or col_type == "text":
-            # Fill dengan mode (most frequent)
-            valid_vals = df.loc[~missing_mask, col].dropna()
-            valid_vals = valid_vals[valid_vals != ""]
-            
-            if len(valid_vals) > 0:
-                counter = Counter(valid_vals)
-                mode_val = counter.most_common(1)[0][0]
-                df.loc[missing_mask, col] = mode_val
-            else:
-                df.loc[missing_mask, col] = "Unknown"
-                
-        elif col_type == "date":
-            # Fill dengan median date
-            valid_dates = pd.to_datetime(df[col], errors='coerce')
-            valid_dates = valid_dates[~valid_dates.isna()]
-            
-            if len(valid_dates) > 0:
-                median_date = valid_dates.median()
-                if pd.notna(median_date):
-                    df.loc[missing_mask, col] = median_date.strftime("%Y-%m-%d")
-                else:
-                    df.loc[missing_mask, col] = datetime.now().strftime("%Y-%m-%d")
-            else:
-                df.loc[missing_mask, col] = datetime.now().strftime("%Y-%m-%d")
-        
-        elif col_type == "contact":
-            # Fill dengan "Unknown" untuk contact
-            df.loc[missing_mask, col] = "Unknown"
+        df[col] = df[col].replace('', 'unknown')
     
     return df
 
