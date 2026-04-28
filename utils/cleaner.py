@@ -308,11 +308,17 @@ def validate_and_fix_dataframe(df):
     
     for col in numeric_cols:
         if col in df.columns:
-            df[col] = convert_to_numeric(df[col])
+            # Keep as string - convert in post-processing only
+            df[col] = df[col].fillna('').astype(str)
     
     for col in date_cols:
         if col in df.columns:
-            df[col] = standardize_dates_in_column(df[col])
+            # Keep as string - convert in post-processing only
+            df[col] = df[col].fillna('').astype(str)
+    
+    for col in df.columns:
+        if col not in numeric_cols and col not in date_cols:
+            df[col] = df[col].fillna('').astype(str)
     
     for col in df.columns:
         if col not in numeric_cols and col not in date_cols:

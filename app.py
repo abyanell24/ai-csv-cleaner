@@ -115,12 +115,24 @@ def main():
                     uploaded_file_clean.seek(0)
                     
                     df = pre_process_csv(uploaded_file_clean)
+                    
+                    # CRITICAL: Convert all columns to strings BEFORE any further processing
+                    for col in df.columns:
+                        df[col] = df[col].fillna('').astype(str)
+                    
                     st.success(f"Pre-processing complete! {len(df)} rows")
                     
                     progress_bar.progress(15)
                     st.status("Step 2: AI cleaning...")
                     
-                    csv_data = df.to_dict(orient="records")
+                    # Convert DataFrame to list of strings
+                    csv_data = []
+                    for item in df.to_dict(orient="records"):
+                        fixed_item = {}
+                        for k, v in item.items():
+                            fixed_item[k] = "" if pd.isna(v) or v is None else str(v)
+                        csv_data.append(fixed_item)
+                    
                     total_rows = len(csv_data)
                     total_batches = (total_rows + 49) // 50
                     
@@ -175,7 +187,12 @@ def main():
                     
                     if all_cleaned:
                         try:
-                            df_clean = pd.DataFrame(all_cleaned)
+                            # Force all to strings FIRST, then create DataFrame
+                            all_cleaned_str = []
+                            for item in all_cleaned:
+                                fixed_item = {k: "" if v is None or pd.isna(v) else str(v) for k, v in item.items()}
+                                all_cleaned_str.append(fixed_item)
+                            df_clean = pd.DataFrame(all_cleaned_str).astype(str)
                             df_clean = post_process_dataframe(df_clean)
                         except Exception as e:
                             st.warning(f"Processing completed with minor issues: {str(e)}")
