@@ -153,7 +153,17 @@ def main():
                             else:
                                 all_cleaned.extend(batch)
                         except:
-                            all_cleaned.extend(batch)
+                            # Convert batch to strings for fallback
+                            batch_fixed = []
+                            for item in batch:
+                                fixed_item = {}
+                                for k, v in item.items():
+                                    if isinstance(v, (int, float)) and v is not None:
+                                        fixed_item[k] = str(v)
+                                    else:
+                                        fixed_item[k] = str(v) if v is not None else ""
+                                batch_fixed.append(fixed_item)
+                            all_cleaned.extend(batch_fixed)
                         
                         current_batch = batch_num // 50 + 1
                         progress_percent = min(15 + int((current_batch / total_batches) * 70), 85)
@@ -169,7 +179,17 @@ def main():
                             df_clean = post_process_dataframe(df_clean)
                         except Exception as e:
                             st.warning(f"Processing completed with minor issues: {str(e)}")
-                            df_clean = pd.DataFrame(csv_data)
+                            # Better fallback - convert all to strings
+                            fallback_data = []
+                            for item in csv_data:
+                                fixed_item = {}
+                                for k, v in item.items():
+                                    if isinstance(v, (int, float)) and v is not None:
+                                        fixed_item[k] = str(v)
+                                    else:
+                                        fixed_item[k] = str(v) if v is not None else ""
+                                fallback_data.append(fixed_item)
+                            df_clean = pd.DataFrame(fallback_data)
                             df_clean = post_process_dataframe(df_clean)
                         
                         progress_bar.progress(100)

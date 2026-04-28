@@ -259,17 +259,22 @@ def standardize_status(series):
 
 
 def normalize_dtypes(df):
-    """Normalize column dtypes - fix float to int where applicable"""
+    """Normalize column dtypes - convert all to strings for safety"""
     for col in df.columns:
         if df[col].dtype == 'float64':
             try:
                 valid_vals = df[col].dropna()
                 if len(valid_vals) > 0 and (valid_vals == valid_vals.astype(int)).all():
                     df[col] = df[col].astype(int)
+                else:
+                    # More aggressive: convert to string anyway
+                    df[col] = df[col].fillna('').astype(str)
             except:
-                pass
+                df[col] = df[col].fillna('').astype(str)
         elif df[col].dtype == 'object':
-            df[col] = df[col].astype(str)
+            df[col] = df[col].fillna('').astype(str)
+        elif df[col].dtype == 'int64':
+            df[col] = df[col].fillna(0).astype(str)
     return df
 
 
