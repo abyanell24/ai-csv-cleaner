@@ -289,60 +289,22 @@ def remove_duplicates(df):
 
 
 def validate_and_fix_dataframe(df):
-    numeric_cols = []
-    text_cols = []
-    date_cols = []
-    category_cols = ["category", "categories", "type", "jenis", "kategori"]
-    status_cols = ["status", "condition", "kondisi"]
-    
+    # DON'T convert to numeric - keep as strings for safety
     for col in df.columns:
-        col_lower = col.lower()
-        if any(x in col_lower for x in ["quantity", "qty", "price", "amount", "total", "cost", "harga"]):
-            numeric_cols.append(col)
-        elif any(x in col_lower for x in ["date", "tanggal", "waktu", "time"]):
-            date_cols.append(col)
-        elif any(x in col_lower for x in category_cols):
-            category_cols.append(col)
-        elif any(x in col_lower for x in status_cols):
-            status_cols.append(col)
-    
-    for col in numeric_cols:
-        if col in df.columns:
-            # Keep as string - convert in post-processing only
-            df[col] = df[col].fillna('').astype(str)
-    
-    for col in date_cols:
-        if col in df.columns:
-            # Keep as string - convert in post-processing only
-            df[col] = df[col].fillna('').astype(str)
-    
-    for col in df.columns:
-        if col not in numeric_cols and col not in date_cols:
-            df[col] = df[col].fillna('').astype(str)
-    
-    for col in df.columns:
-        if col not in numeric_cols and col not in date_cols:
-            df[col] = standardize_text(df[col])
-    
-    for col in category_cols:
-        if col in df.columns:
-            df[col] = standardize_category(df[col])
-    
-    for col in status_cols:
-        if col in df.columns:
-            df[col] = standardize_status(df[col])
-    
-    df = fill_missing_with_context(df)
+        df[col] = df[col].fillna('').astype(str)
     
     return df
 
 
 def pre_process_csv(file):
-    df = pd.read_csv(file)
+    df = pd.read_csv(file, dtype=str)  # Force string type from start
     
     df = detect_and_fix_duplicate_columns(df)
     
-    df = validate_and_fix_dataframe(df)
+    # Don't convert to numeric - keep as strings!
+    # Just standardize text
+    for col in df.columns:
+        df[col] = df[col].fillna('').astype(str)
     
     return df
 

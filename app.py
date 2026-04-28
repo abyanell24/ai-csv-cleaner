@@ -110,28 +110,25 @@ def main():
 
                 if st.button("Clean with AI", key="clean_btn"):
                     progress_bar = st.progress(5)
-                    st.status("Step 1: Pre-processing...")
+                    st.status("Step 1: Reading and converting to strings...")
                     
                     uploaded_file_clean.seek(0)
                     
-                    df = pre_process_csv(uploaded_file_clean)
+                    # Read CSV with dtype=str to force strings from start
+                    df = pd.read_csv(uploaded_file_clean, dtype=str)
+                    df = df.fillna('')
                     
-                    # CRITICAL: Convert all columns to strings BEFORE any further processing
+                    st.success(f"Loaded {len(df)} rows")
+                    
+                    progress_bar.progress(20)
+                    st.status("Step 2: Converting all columns to strings...")
+                    
+                    # Ensure all columns are strings
                     for col in df.columns:
-                        df[col] = df[col].fillna('').astype(str)
+                        df[col] = df[col].astype(str)
                     
-                    st.success(f"Pre-processing complete! {len(df)} rows")
-                    
-                    progress_bar.progress(15)
-                    st.status("Step 2: AI cleaning...")
-                    
-                    # Convert DataFrame to list of strings
-                    csv_data = []
-                    for item in df.to_dict(orient="records"):
-                        fixed_item = {}
-                        for k, v in item.items():
-                            fixed_item[k] = "" if pd.isna(v) or v is None else str(v)
-                        csv_data.append(fixed_item)
+                    # Get list of string dicts
+                    csv_data = df.to_dict(orient="records")
                     
                     total_rows = len(csv_data)
                     total_batches = (total_rows + 49) // 50
