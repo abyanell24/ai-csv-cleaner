@@ -4,9 +4,9 @@ import io
 
 def generate_csv_from_list(data: list, columns: list = None) -> bytes:
     df = pd.DataFrame(data, columns=columns)
-    # Convert all columns to string to avoid dtype issues
+    # Convert all columns to strings using apply
     for col in df.columns:
-        df[col] = df[col].astype(str)
+        df[col] = df[col].fillna('').apply(lambda x: str(x) if pd.notna(x) else '')
     return df.to_csv(index=False).encode('utf-8')
 
 

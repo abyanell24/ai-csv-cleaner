@@ -114,8 +114,8 @@ def main():
                     
                     uploaded_file_clean.seek(0)
                     
-                    # Read CSV with dtype=str to force strings from start
-                    df = pd.read_csv(uploaded_file_clean, dtype=str)
+                    # Read CSV first
+                    df = pd.read_csv(uploaded_file_clean)
                     df = df.fillna('')
                     
                     st.success(f"Loaded {len(df)} rows")
@@ -123,9 +123,9 @@ def main():
                     progress_bar.progress(20)
                     st.status("Step 2: Converting all columns to strings...")
                     
-                    # Ensure all columns are strings
+                    # Convert each value properly using apply
                     for col in df.columns:
-                        df[col] = df[col].astype(str)
+                        df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) else '')
                     
                     # Get list of string dicts
                     csv_data = df.to_dict(orient="records")
@@ -184,27 +184,23 @@ def main():
                     
                     if all_cleaned:
                         try:
-                            # Force all to strings FIRST, then create DataFrame
+                            # Create DataFrame and ensure all strings using apply
                             all_cleaned_str = []
                             for item in all_cleaned:
-                                fixed_item = {k: "" if v is None or pd.isna(v) else str(v) for k, v in item.items()}
+                                fixed_item = {k: str(v) if v is not None else '' for k, v in item.items()}
                                 all_cleaned_str.append(fixed_item)
-                            df_clean = pd.DataFrame(all_cleaned_str).astype(str)
-                            df_clean = post_process_dataframe(df_clean)
+                            df_clean = pd.DataFrame(all_cleaned_str)
+                            # Convert all columns properly
+                            for col in df_clean.columns:
+                                df_clean[col] = df_clean[col].apply(lambda x: str(x) if pd.notna(x) else '')
                         except Exception as e:
                             st.warning(f"Processing completed with minor issues: {str(e)}")
-                            # Better fallback - convert all to strings
+                            # Better fallback - convert all to strings properly
                             fallback_data = []
                             for item in csv_data:
-                                fixed_item = {}
-                                for k, v in item.items():
-                                    if isinstance(v, (int, float)) and v is not None:
-                                        fixed_item[k] = str(v)
-                                    else:
-                                        fixed_item[k] = str(v) if v is not None else ""
+                                fixed_item = {k: str(v) if v is not None else '' for k, v in item.items()}
                                 fallback_data.append(fixed_item)
                             df_clean = pd.DataFrame(fallback_data)
-                            df_clean = post_process_dataframe(df_clean)
                         
                         progress_bar.progress(100)
                         st.markdown("### ✅ Cleaned Data")

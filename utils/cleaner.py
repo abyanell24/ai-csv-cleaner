@@ -259,22 +259,9 @@ def standardize_status(series):
 
 
 def normalize_dtypes(df):
-    """Normalize column dtypes - convert all to strings for safety"""
+    """Normalize column dtypes - convert all to strings using apply"""
     for col in df.columns:
-        if df[col].dtype == 'float64':
-            try:
-                valid_vals = df[col].dropna()
-                if len(valid_vals) > 0 and (valid_vals == valid_vals.astype(int)).all():
-                    df[col] = df[col].astype(int)
-                else:
-                    # More aggressive: convert to string anyway
-                    df[col] = df[col].fillna('').astype(str)
-            except:
-                df[col] = df[col].fillna('').astype(str)
-        elif df[col].dtype == 'object':
-            df[col] = df[col].fillna('').astype(str)
-        elif df[col].dtype == 'int64':
-            df[col] = df[col].fillna(0).astype(str)
+        df[col] = df[col].fillna('').apply(lambda x: str(x) if pd.notna(x) else '')
     return df
 
 
@@ -289,22 +276,23 @@ def remove_duplicates(df):
 
 
 def validate_and_fix_dataframe(df):
-    # DON'T convert to numeric - keep as strings for safety
+    # Convert all to string using apply
     for col in df.columns:
-        df[col] = df[col].fillna('').astype(str)
+        df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) else '')
     
     return df
 
 
 def pre_process_csv(file):
-    df = pd.read_csv(file, dtype=str)  # Force string type from start
+    # Read and convert all to strings using apply
+    df = pd.read_csv(file)
+    df = df.fillna('')
     
     df = detect_and_fix_duplicate_columns(df)
     
-    # Don't convert to numeric - keep as strings!
-    # Just standardize text
+    # Convert each value to string properly
     for col in df.columns:
-        df[col] = df[col].fillna('').astype(str)
+        df[col] = df[col].apply(lambda x: str(x) if pd.notna(x) else '')
     
     return df
 
