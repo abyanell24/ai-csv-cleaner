@@ -258,6 +258,21 @@ def standardize_status(series):
     return series.apply(lambda x: status_map.get(x.lower(), x.lower()) if x else "")
 
 
+def normalize_dtypes(df):
+    """Normalize column dtypes - fix float to int where applicable"""
+    for col in df.columns:
+        if df[col].dtype == 'float64':
+            try:
+                valid_vals = df[col].dropna()
+                if len(valid_vals) > 0 and (valid_vals == valid_vals.astype(int)).all():
+                    df[col] = df[col].astype(int)
+            except:
+                pass
+        elif df[col].dtype == 'object':
+            df[col] = df[col].astype(str)
+    return df
+
+
 def recalculate_total(df, quantity_col, price_col, total_col):
     if quantity_col in df.columns and price_col in df.columns:
         df[total_col] = df[quantity_col] * df[price_col]
@@ -322,6 +337,7 @@ def pre_process_csv(file):
 
 
 def post_process_dataframe(df):
+    df = normalize_dtypes(df)
     df = remove_duplicates(df)
     
     # Fill missing values with context before recalculating totals
@@ -333,6 +349,8 @@ def post_process_dataframe(df):
     
     if qty_cols and price_cols and total_cols:
         df = recalculate_total(df, qty_cols[0], price_cols[0], total_cols[0])
+    
+    df = normalize_dtypes(df)
     
     for col in df.columns:
         if df[col].dtype == object:

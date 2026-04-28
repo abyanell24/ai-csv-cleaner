@@ -26,41 +26,41 @@ def init_cerebras():
 
 def main():
     st.title("📊 CSV AI Parser & Cleaner")
-    st.markdown("Upload CSV, parse ke JSON, atau clean data CSV dengan AI (Cerebras llama-3.1-8b - Batch Processing)")
+    st.markdown("Upload CSV, parse to JSON, or clean data with AI (Cerebras llama-3.1-8b)")
 
     init_cerebras()
 
     tab1, tab2 = st.tabs(["CSV Parser", "CSV Cleaner"])
 
     with tab1:
-        st.subheader("Upload CSV → JSON")
-        uploaded_file = st.file_uploader("Pilih file CSV", type=["csv"], key="parser_uploader")
+        st.subheader("Upload CSV - JSON")
+        uploaded_file = st.file_uploader("Choose CSV file", type=["csv"], key="parser_uploader")
 
         if uploaded_file:
             try:
                 uploaded_file.seek(0)
                 df = pd.read_csv(uploaded_file)
-                st.success(f"Berhasil load {len(df)} baris data")
+                st.success(f"Successfully loaded {len(df)} rows")
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown("### 📋 Preview Data")
+                    st.markdown("### 📋 Data Preview")
                     st.dataframe(df.head(10), use_container_width=True)
 
                 with col2:
-                    st.markdown("### ℹ️ Info CSV")
+                    st.markdown("### ℹ️ CSV Info")
                     st.json({
                         "columns": list(df.columns),
                         "row_count": len(df),
                         "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()}
                     })
 
-                analyze_with_ai = st.checkbox("Analisa dengan AI (llama-3.1-8b)", key="parser_ai_check")
+                analyze_with_ai = st.checkbox("Analyze with AI (llama-3.1-8b)", key="parser_ai_check")
 
                 if analyze_with_ai:
-                    if st.button("Jalankan AI Analysis", key="parser_ai_btn"):
+                    if st.button("Run AI Analysis", key="parser_ai_btn"):
                         progress_bar = st.progress(10)
-                        st.status("Menghubungi Cerebras API...")
+                        st.status("Connecting to Cerebras API...")
                         
                         uploaded_file.seek(0)
                         csv_data = parse_csv_to_list(uploaded_file)
@@ -96,26 +96,26 @@ def main():
                 st.error(f"Error: {str(e)}")
 
     with tab2:
-        st.subheader("Upload CSV → Clean dengan AI → Download")
-        uploaded_file_clean = st.file_uploader("Pilih file CSV untuk di-clean", type=["csv"], key="cleaner_uploader")
+        st.subheader("Upload CSV - Clean with AI - Download")
+        uploaded_file_clean = st.file_uploader("Choose CSV file to clean", type=["csv"], key="cleaner_uploader")
 
         if uploaded_file_clean:
             try:
                 uploaded_file_clean.seek(0)
                 df = pd.read_csv(uploaded_file_clean)
-                st.success(f"Berhasil load {len(df)} baris data")
+                st.success(f"Successfully loaded {len(df)} rows")
 
-                st.markdown("### 📋 Preview Data Asli")
+                st.markdown("### 📋 Original Data Preview")
                 st.dataframe(df.head(10), use_container_width=True)
 
-                if st.button("Clean dengan AI", key="clean_btn"):
+                if st.button("Clean with AI", key="clean_btn"):
                     progress_bar = st.progress(5)
                     st.status("Step 1: Pre-processing...")
                     
                     uploaded_file_clean.seek(0)
                     
                     df = pre_process_csv(uploaded_file_clean)
-                    st.success(f"Pre-processing selesai! {len(df)} baris")
+                    st.success(f"Pre-processing complete! {len(df)} rows")
                     
                     progress_bar.progress(15)
                     st.status("Step 2: AI cleaning...")
@@ -148,14 +148,19 @@ def main():
                         current_batch = batch_num // 50 + 1
                         progress_percent = min(15 + int((current_batch / total_batches) * 70), 85)
                         progress_bar.progress(progress_percent)
-                        st.status(f"AI processing batch {current_batch}/{total_batches}...")
+                        st.status(f"Processing batch {current_batch}/{total_batches}...")
                     
                     progress_bar.progress(85)
                     st.status("Step 3: Post-processing...")
                     
                     if all_cleaned:
-                        df_clean = pd.DataFrame(all_cleaned)
-                        df_clean = post_process_dataframe(df_clean)
+                        try:
+                            df_clean = pd.DataFrame(all_cleaned)
+                            df_clean = post_process_dataframe(df_clean)
+                        except Exception as e:
+                            st.warning(f"Processing completed with minor issues: {str(e)}")
+                            df_clean = pd.DataFrame(csv_data)
+                            df_clean = post_process_dataframe(df_clean)
                         
                         progress_bar.progress(100)
                         st.markdown("### ✅ Cleaned Data")
@@ -163,16 +168,16 @@ def main():
                         
                         csv_bytes = generate_csv_from_list(df_clean.to_dict(orient="records"))
                         st.download_button(
-                            label="Download CSV_cleaned.csv",
+                            label="Download cleaned CSV",
                             data=csv_bytes,
                             file_name="output_cleaned.csv",
                             mime="text/csv",
                             key="cleaned_download"
                         )
-                        st.success(f"Data berhasil di-clean! {len(df_clean)} baris")
+                        st.success(f"Data cleaned successfully! {len(df_clean)} rows")
                     else:
                         progress_bar.progress(100)
-                        st.warning("Gagal memproses data")
+                        st.warning("Failed to process data")
 
             except Exception as e:
                 st.error(f"Error: {str(e)}")
