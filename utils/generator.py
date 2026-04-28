@@ -1,20 +1,22 @@
 import pandas as pd
-import io
 
 
 def generate_csv_from_list(data: list, columns: list = None) -> bytes:
+    """Generate CSV from list of dicts"""
+    if not data:
+        return b""
+    
     df = pd.DataFrame(data, columns=columns)
-    # Convert all columns to strings using apply
-    for col in df.columns:
-        df[col] = df[col].fillna('').apply(lambda x: str(x) if pd.notna(x) else '')
-    return df.to_csv(index=False).encode('utf-8')
+    csv_string = df.to_csv(index=False)
+    return csv_string.encode('utf-8')
 
 
 def generate_csv_from_dict(data: dict, columns: list = None) -> bytes:
     if columns is None:
         columns = list(data.keys())
     df = pd.DataFrame([data], columns=columns)
-    return df.to_csv(index=False).encode('utf-8')
+    csv_string = df.to_csv(index=False)
+    return csv_string.encode('utf-8')
 
 
 def generate_csv_file(data: list, filename: str = "output.csv") -> str:
