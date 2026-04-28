@@ -45,7 +45,7 @@ def main():
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown("### 📋 Data Preview")
-                    st.dataframe(df.head(10), use_container_width=True)
+                    st.dataframe(df.head(10), width='stretch')
 
                 with col2:
                     st.markdown("### ℹ️ CSV Info")
@@ -106,7 +106,7 @@ def main():
                 st.success(f"Successfully loaded {len(df)} rows")
 
                 st.markdown("### 📋 Original Data Preview")
-                st.dataframe(df.head(10), use_container_width=True)
+                st.dataframe(df.head(10), width='stretch')
 
                 if st.button("Clean with AI", key="clean_btn"):
                     progress_bar = st.progress(5)
@@ -139,7 +139,17 @@ def main():
                         try:
                             cleaned_batch = json.loads(result)
                             if isinstance(cleaned_batch, list):
-                                all_cleaned.extend(cleaned_batch)
+                                # Convert all numeric values to strings for compatibility
+                                cleaned_batch_cleaned = []
+                                for item in cleaned_batch:
+                                    cleaned_item = {}
+                                    for k, v in item.items():
+                                        if isinstance(v, (int, float)) and v is not None:
+                                            cleaned_item[k] = str(v)
+                                        else:
+                                            cleaned_item[k] = str(v) if v is not None else ""
+                                    cleaned_batch_cleaned.append(cleaned_item)
+                                all_cleaned.extend(cleaned_batch_cleaned)
                             else:
                                 all_cleaned.extend(batch)
                         except:
@@ -164,7 +174,7 @@ def main():
                         
                         progress_bar.progress(100)
                         st.markdown("### ✅ Cleaned Data")
-                        st.dataframe(df_clean.head(10), use_container_width=True)
+                        st.dataframe(df_clean.head(10), width='stretch')
                         
                         csv_bytes = generate_csv_from_list(df_clean.to_dict(orient="records"))
                         st.download_button(
